@@ -2,26 +2,225 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   FameScope — Design Tokens
+   严禁在组件里硬编码 hex；所有颜色一律走下面的 CSS 变量。
+   浅色为默认；.dark 类下覆盖为深色。两套同时维护。
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* —— 品牌 —— */
+  --color-brand: #534ab7; /* Purple 600 */
+  --color-brand-strong: #443c9e;
+  --color-brand-weak: rgba(83, 74, 183, 0.08);
+  --color-brand-weak-strong: rgba(83, 74, 183, 0.14);
+  --color-on-brand: #ffffff;
+
+  /* —— 背景层级 —— */
+  --color-bg-page: #f5f4f9; /* 页面底色，带极淡紫调 */
+  --color-bg-surface: #ffffff; /* 卡片 */
+  --color-bg-surface-2: #f7f6fb; /* 卡片内嵌块（引用块等） */
+  --color-bg-elevated: #ffffff; /* 顶/底栏、弹层 */
+  --color-bg-hover: rgba(20, 18, 40, 0.04);
+
+  /* —— 文字 —— */
+  --color-text-primary: #1b1a23;
+  --color-text-secondary: #5e5c6b;
+  --color-text-tertiary: #97949f;
+  --color-text-inverse: #ffffff;
+
+  /* —— 描边 / 分隔 —— */
+  --color-border: #e9e7f0;
+  --color-border-strong: #ddd9e8;
+  --color-divider: #efedf4;
+
+  /* —— 语义色 —— */
+  /* 信号提示 / 收藏激活：琥珀系 */
+  --color-background-warning: #fcefd8;
+  --color-text-warning: #9a6300;
+  /* 分享：信息蓝系 */
+  --color-background-info: #e4e9fb;
+  --color-text-info: #3d4ec2;
+  /* 成功（活跃/认证小标） */
+  --color-background-success: #d9f2e3;
+  --color-text-success: #1f7a4d;
+
+  /* —— 未读圆点 —— */
+  --color-unread: var(--color-brand);
+
+  /* —— 圆角 —— */
+  --border-radius-sm: 6px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+  --border-radius-pill: 999px;
+
+  /* —— 间距 —— */
+  --space-page-x: 16px;
+  --space-card-p: 14px;
+  --space-card-gap: 10px;
+
+  /* —— 阴影 —— */
+  --shadow-card: 0 1px 2px rgba(27, 26, 35, 0.04),
+    0 1px 1px rgba(27, 26, 35, 0.03);
+  --shadow-elevated: 0 8px 30px rgba(27, 26, 35, 0.12);
+  --shadow-nav: 0 -1px 0 var(--color-divider);
+
+  /* —— 容器 —— */
+  --app-max-width: 440px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --color-brand: #7f77dd; /* Purple 400 */
+  --color-brand-strong: #938cea;
+  --color-brand-weak: rgba(127, 119, 221, 0.14);
+  --color-brand-weak-strong: rgba(127, 119, 221, 0.22);
+  --color-on-brand: #ffffff;
+
+  --color-bg-page: #0d0c12;
+  --color-bg-surface: #17161e;
+  --color-bg-surface-2: #1f1d27;
+  --color-bg-elevated: #1a1922;
+  --color-bg-hover: rgba(255, 255, 255, 0.05);
+
+  --color-text-primary: #ecebf2;
+  --color-text-secondary: #a3a0b0;
+  --color-text-tertiary: #6f6c7d;
+  --color-text-inverse: #17161e;
+
+  --color-border: #2a2834;
+  --color-border-strong: #36333f;
+  --color-divider: #242230;
+
+  --color-background-warning: rgba(243, 178, 74, 0.16);
+  --color-text-warning: #f0b760;
+  --color-background-info: rgba(127, 119, 221, 0.2);
+  --color-text-info: #aaa3f0;
+  --color-background-success: rgba(46, 178, 120, 0.18);
+  --color-text-success: #5fd39b;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-elevated: 0 8px 30px rgba(0, 0, 0, 0.55);
+  --shadow-nav: 0 -1px 0 var(--color-divider);
+}
+
+/* ============================================================
+   基础样式
+   ============================================================ */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* 防止 iOS 横向滚动、字号缩放 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.002em;
+}
+
+/* 主题切换时的平滑过渡（只过渡颜色，避免布局抖动） */
+body,
+.theme-transition * {
+  transition: background-color 0.25s ease, border-color 0.25s ease,
+    color 0.2s ease;
+}
+
+/* ============================================================
+   动效 keyframes
+   ============================================================ */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes score-fill {
+  from { width: 0%; }
+}
+
+@keyframes radar-ping {
+  0%   { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.32s ease both;
+}
+.animate-fade-in {
+  animation: fade-in 0.22s ease both;
+}
+.animate-score-fill {
+  animation: score-fill 0.55s cubic-bezier(.4,0,.2,1) both;
+}
+.animate-radar-ping {
+  animation: radar-ping 1.1s ease-out infinite;
+}
+.animate-slide-up {
+  animation: slide-up 0.36s cubic-bezier(.22,.68,0,1.1) both;
+}
+.animate-backdrop-in {
+  animation: backdrop-in 0.22s ease both;
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes radar-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.04); }
+}
+.animate-radar-sweep {
+  animation: radar-sweep 3.5s linear infinite;
+}
+.animate-radar-pulse {
+  animation: radar-pulse 2s ease-in-out infinite;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  /* 隐藏滚动条但保留滚动 */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  /* 安全区 padding（PWA 底部导航） */
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px));
+  }
+  .h-safe-bottom {
+    height: env(safe-area-inset-bottom, 0px);
   }
 }
