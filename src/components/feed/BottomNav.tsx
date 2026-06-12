@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   IconRadar2,
   IconNews,
@@ -25,7 +26,6 @@ const ITEMS: NavItem[] = [
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
 
   return (
     <nav
@@ -38,14 +38,12 @@ export default function BottomNav() {
             href === "/" ? pathname === "/" : pathname.startsWith(href);
 
           return (
-            <button
+            <Link
               key={key}
-              type="button"
-              // onTouchStart 比 onClick 快 ~300ms，消除移动端点击延迟
-              onTouchStart={() => { if (!isActive) router.push(href); }}
-              onClick={() => { if (!isActive) router.push(href); }}
+              href={href}
+              prefetch={true}
               className="flex flex-1 flex-col items-center gap-1 pb-0 pt-3"
-              style={{ touchAction: "manipulation", background: "none", border: "none", cursor: "pointer" }}
+              style={{ touchAction: "manipulation", textDecoration: "none" }}
             >
               <Icon
                 size={23}
@@ -66,7 +64,7 @@ export default function BottomNav() {
               >
                 {label}
               </span>
-            </button>
+            </Link>
           );
         })}
       </div>

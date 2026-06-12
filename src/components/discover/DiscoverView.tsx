@@ -91,6 +91,11 @@ function mapMySource(row: any): DiscoverSource {
   };
 }
 
+// 模块级缓存
+let mySourcesCache: DiscoverSource[] | null = null;
+let mySourcesCacheTs = 0;
+const MY_SOURCES_TTL = 5 * 60 * 1000;
+
 export default function DiscoverView() {
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -98,8 +103,8 @@ export default function DiscoverView() {
   const [resultTab, setResultTab] = useState<ResultTab>("persons");
   const [persons, setPersons] = useState<DiscoverSource[]>([]);
   const [orgs, setOrgs] = useState<DiscoverSource[]>([]);
-  const [mySources, setMySources] = useState<DiscoverSource[]>([]);
-  const [myLoading, setMyLoading] = useState(true);
+  const [mySources, setMySources] = useState<DiscoverSource[]>(() => mySourcesCache ?? []);
+  const [myLoading, setMyLoading] = useState(mySourcesCache === null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -109,14 +114,18 @@ export default function DiscoverView() {
     return detectInputType(query);
   }, [query]);
 
-  // 加载我的追踪列表
-  const loadMySources = useCallback(async () => {
+  // 加载我的追踪列表（带缓存）
+  const loadMySources = useCallback(async (force = false) => {
+    if (!force && mySourcesCache && Date.now() - mySourcesCacheTs < MY_SOURCES_TTL) return;
     setMyLoading(true);
     try {
       const res = await fetch("/api/sources/my");
       if (res.ok) {
         const json = await res.json();
-        setMySources((json.sources ?? []).map(mapMySource));
+        const mapped = (json.sources ?? []).map(mapMySource);
+        mySourcesCache = mapped;
+        mySourcesCacheTs = Date.now();
+        setMySources(mapped);
       }
     } finally {
       setMyLoading(false);
@@ -188,8 +197,9 @@ export default function DiscoverView() {
   }
 
   function handleFollowToggle(handle: string, following: boolean) {
+    mySourcesCache = null; // 关注状态变化，清缓存
     if (following) {
-      loadMySources();
+      loadMySources(true);
     } else {
       setMySources((prev) => prev.filter((s) => s.handle !== `@${handle}` && s.handle !== handle));
     }
@@ -197,8 +207,8 @@ export default function DiscoverView() {
   }
 
   function handleUnfollow(handle: string) {
+    mySourcesCache = null;
     setMySources((prev) => prev.filter((s) => s.handle !== `@${handle}` && s.handle !== handle));
-    // 清 Next.js Router Cache，确保信号流切回来时拿到最新数据
     router.refresh();
   }
 

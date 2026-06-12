@@ -134,6 +134,11 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return arr.buffer;
 }
 
+// 模块级缓存
+let meCache: { sourceCount: number; isAdmin: boolean } | null = null;
+let meCacheTs = 0;
+const ME_CACHE_TTL = 5 * 60 * 1000;
+
 /* ── 主视图 ──────────────────────────────────────────────────── */
 export default function MeView() {
   const { dark, mounted, toggle } = useTheme();
@@ -157,15 +162,22 @@ export default function MeView() {
       setAvatarText(e.slice(0, 1).toUpperCase());
     });
 
-    fetch("/api/sources/my")
-      .then((r) => r.json())
-      .then((d) => setSourceCount((d.sources ?? []).length))
-      .catch(() => {});
-
-    fetch("/api/admin/is-admin")
-      .then((r) => r.json())
-      .then((d) => setIsAdmin(d.isAdmin ?? false))
-      .catch(() => {});
+    if (meCache && Date.now() - meCacheTs < ME_CACHE_TTL) {
+      setSourceCount(meCache.sourceCount);
+      setIsAdmin(meCache.isAdmin);
+    } else {
+      Promise.all([
+        fetch("/api/sources/my").then((r) => r.json()).catch(() => ({ sources: [] })),
+        fetch("/api/admin/is-admin").then((r) => r.json()).catch(() => ({ isAdmin: false })),
+      ]).then(([src, adm]) => {
+        const count = (src.sources ?? []).length;
+        const admin = adm.isAdmin ?? false;
+        meCache = { sourceCount: count, isAdmin: admin };
+        meCacheTs = Date.now();
+        setSourceCount(count);
+        setIsAdmin(admin);
+      });
+    }
 
     // 检查当前推送订阅状态
     if ("serviceWorker" in navigator && "PushManager" in window) {

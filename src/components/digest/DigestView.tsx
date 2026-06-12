@@ -105,15 +105,24 @@ function mapDbDigest(row: { id: string; generated_at: string; content: DigestCon
   };
 }
 
+// 模块级缓存，切 tab 再切回来不重新请求
+let digestCache: DigestEntry[] | null = null;
+let digestCacheTs = 0;
+const DIGEST_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+
 export default function DigestView() {
-  const [digests, setDigests] = useState<DigestEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [digests, setDigests] = useState<DigestEntry[]>(() => digestCache ?? []);
+  const [loading, setLoading] = useState(digestCache === null);
   useEffect(() => {
+    if (digestCache && Date.now() - digestCacheTs < DIGEST_CACHE_TTL) return;
+    setLoading(true);
     fetch("/api/digest/list")
       .then((r) => r.json())
       .then((data) => {
-        const rows = data.digests ?? [];
-        setDigests(rows.map(mapDbDigest));
+        const rows = (data.digests ?? []).map(mapDbDigest);
+        digestCache = rows;
+        digestCacheTs = Date.now();
+        setDigests(rows);
       })
       .finally(() => setLoading(false));
   }, []);
