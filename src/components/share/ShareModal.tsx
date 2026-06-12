@@ -45,7 +45,13 @@ export default function ShareModal({
     if (!cardRef.current || sharing) return;
     setSharing(true);
     try {
-      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, cacheBust: true });
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 8000)
+      );
+      const dataUrl = await Promise.race([
+        toPng(cardRef.current, { pixelRatio: 2, cacheBust: true, skipFonts: true }),
+        timeout,
+      ]);
       const blob = await fetch(dataUrl).then((r) => r.blob());
       const file = new File([blob], "famescope.png", { type: "image/png" });
 

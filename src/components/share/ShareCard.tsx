@@ -255,7 +255,7 @@ export default function ShareCard({ content }: { content: Content }) {
                 letterSpacing: "-0.01em",
               }}
             >
-              {isOrg ? source.nameEn : `${source.nameZh} · ${source.nameEn}`}
+              {isOrg ? source.nameEn : `${source.nameEn}${source.nameZh && source.nameZh !== source.nameEn ? ` · ${source.nameZh}` : ""}`}
             </p>
             <p
               style={{

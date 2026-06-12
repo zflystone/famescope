@@ -71,8 +71,10 @@ export default function TweetCard({ tweet }: { tweet: FeedTweet }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="truncate text-name font-medium text-content-primary">
-              {tweet.source.nameZh}
-              <span className="text-content-tertiary"> · {tweet.source.nameEn}</span>
+              {tweet.source.nameEn}
+              {tweet.source.nameZh && tweet.source.nameZh !== tweet.source.nameEn && (
+                <span className="text-content-tertiary"> · {tweet.source.nameZh}</span>
+              )}
             </span>
           </div>
           <p className="truncate text-meta text-content-secondary">
