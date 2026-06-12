@@ -25,9 +25,9 @@ export async function GET() {
     service.from("user_source").select("*", { count: "exact", head: true }),
   ]);
 
-  // 今日新增 post
+  // 今日新增 post（用 UTC 零点，避免服务器时区影响）
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   const { count: todayPostCount } = await service
     .from("post")
     .select("*", { count: "exact", head: true })

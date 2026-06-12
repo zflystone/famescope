@@ -86,19 +86,6 @@ export default function FeedView() {
     }
   }, []);
 
-  // 未读数（初次挂载拉一次）
-  useEffect(() => {
-    async function loadCounts() {
-      const [s, n] = await Promise.all([
-        fetch("/api/feed?tab=social&filter=all&page=0").then((r) => r.json()),
-        fetch("/api/feed?tab=news&filter=all&page=0").then((r) => r.json()),
-      ]);
-      setUnreadSocial(s.total ?? 0);
-      setUnreadNews(n.total ?? 0);
-    }
-    loadCounts();
-  }, []);
-
   // tab / filter 切换时重置并加载第一页
   useEffect(() => {
     setPage(0);

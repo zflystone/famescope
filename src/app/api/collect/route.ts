@@ -25,6 +25,20 @@ export async function POST(req: Request) {
   const supabase = createServiceClient();
   const dataSource = new TwitterApiIoDataSource(process.env.TWITTER_API_IO_KEY!);
 
+  // 清理 7 天前的旧内容（用户收藏的帖子保留）
+  const expire = new Date();
+  expire.setUTCDate(expire.getUTCDate() - 7);
+  const { data: starredRows } = await supabase
+    .from("user_post_state")
+    .select("post_id")
+    .eq("is_starred", true);
+  const starredIds = (starredRows ?? []).map((r: { post_id: string }) => r.post_id);
+  let cleanupQuery = supabase.from("post").delete().lt("published_at", expire.toISOString());
+  if (starredIds.length > 0) {
+    cleanupQuery = cleanupQuery.not("id", "in", `(${starredIds.join(",")})`);
+  }
+  await cleanupQuery;
+
   const { data: sources, error } = await supabase
     .from("source")
     .select("*")
@@ -36,14 +50,18 @@ export async function POST(req: Request) {
 
   const results = { processed: 0, skipped: 0, errors: 0 };
 
-  // 每个信源并行采集，但每个信源内部的 AI 处理也并行
-  await Promise.all(
-    (sources as DbSource[]).map(async (source) => {
+  // 信源逐个顺序处理，避免同时发起大量 AI 请求压垮服务器
+  for (const source of (sources as DbSource[])) {
+    await (async (source) => {
       try {
         // 推文 + 文章可同时采集（org 信源两个来源都有）
+        // RSS since = 上次采集时间；首次采集用当前时间（不拉历史存档）
+        const rssAfter = source.last_fetched_at
+          ? new Date(source.last_fetched_at)
+          : new Date();
         const [tweets, articles] = await Promise.all([
           source.x_handle ? dataSource.fetchTweets(source.x_handle) : [],
-          source.rss_url ? dataSource.fetchArticles!(source.rss_url) : [],
+          source.rss_url ? dataSource.fetchArticles!(source.rss_url, rssAfter) : [],
         ]);
         const rawPosts = [...tweets, ...articles];
 
@@ -142,8 +160,8 @@ export async function POST(req: Request) {
         console.error(`collect error for source ${source.id}:`, err);
         results.errors++;
       }
-    })
-  );
+    })(source);
+  }
 
   return NextResponse.json(results);
 }

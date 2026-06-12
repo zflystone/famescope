@@ -25,10 +25,19 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 刷新 session（保持登录状态）
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  // 未登录用户访问受保护页面时，重定向到登录页
+  // refresh token 失效时清掉旧 cookie，避免每次请求都报错
+  if (authError?.code === "refresh_token_not_found") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    const redirectResponse = NextResponse.redirect(url);
+    request.cookies.getAll().forEach(({ name }) => {
+      if (name.startsWith("sb-")) redirectResponse.cookies.delete(name);
+    });
+    return redirectResponse;
+  }
+
   const protectedPaths = ["/", "/digest", "/discover", "/me", "/admin"];
   const isProtected = protectedPaths.some(
     (p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(p + "/")

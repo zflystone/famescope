@@ -34,7 +34,9 @@ function mapSource(src: any): FeedSource {
 
 export async function GET(req: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // middleware 已验证 token，这里直接读 session（本地解析，不发网络请求）
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
@@ -42,42 +44,30 @@ export async function GET(req: Request) {
   const filter = searchParams.get("filter") ?? "all"; // all | starred | opinion
   const page = parseInt(searchParams.get("page") ?? "0", 10);
 
-  // 获取用户追踪的信源（含 followed_at，用于7天窗口）
-  const { data: userSources } = await supabase
-    .from("user_source")
-    .select("source_id, followed_at")
-    .eq("user_id", user.id);
+  // 并行获取：用户追踪的信源 + 收藏状态
+  const [{ data: userSources }, { data: starredRows }] = await Promise.all([
+    supabase.from("user_source").select("source_id").eq("user_id", user.id),
+    supabase.from("user_post_state").select("post_id").eq("user_id", user.id).eq("is_starred", true),
+  ]);
 
   if (!userSources?.length) {
     return NextResponse.json({ items: [], total: 0, hasMore: false });
   }
 
-  // 计算每个信源的 7天回溯截止时间
-  const sourceWindows = new Map<string, string>();
-  for (const us of userSources) {
-    const cutoff = new Date(
-      new Date(us.followed_at).getTime() - 7 * 24 * 60 * 60 * 1000
-    ).toISOString();
-    sourceWindows.set(us.source_id, cutoff);
-  }
-  const sourceIds = Array.from(sourceWindows.keys());
-  // 最早的 cutoff（简化：单一时间窗口取最宽的那个）
-  const earliestCutoff = Array.from(sourceWindows.values()).sort()[0];
+  const sourceIds = userSources.map((us: any) => us.source_id);
+  const starredSet = new Set((starredRows ?? []).map((r: any) => r.post_id));
+
+  // 只展示最近 3 天的内容
+  const cutoff3d = new Date();
+  cutoff3d.setUTCDate(cutoff3d.getUTCDate() - 3);
+  const earliestCutoff = cutoff3d.toISOString();
 
   const contentType = tab === "news" ? "article" : "tweet";
 
-  // 获取用户收藏状态
-  const { data: starredRows } = await supabase
-    .from("user_post_state")
-    .select("post_id")
-    .eq("user_id", user.id)
-    .eq("is_starred", true);
-  const starredSet = new Set((starredRows ?? []).map((r: any) => r.post_id));
-
-  // 构建查询
+  // 构建查询（不用 count:exact 避免全表计数开销）
   let query = supabase
     .from("post")
-    .select("*, source:source(*)", { count: "exact" })
+    .select("*, source:source(*)")
     .in("source_id", sourceIds)
     .eq("content_type", contentType)
     .gte("published_at", earliestCutoff)
@@ -88,7 +78,7 @@ export async function GET(req: Request) {
     query = query.eq("has_opinion", true);
   }
 
-  const { data: posts, count } = await query;
+  const { data: posts } = await query;
 
   if (!posts) return NextResponse.json({ items: [], total: 0, hasMore: false });
 
@@ -149,8 +139,9 @@ export async function GET(req: Request) {
     }
   });
 
-  const total = filter === "starred" ? items.length : (count ?? 0);
-  const hasMore = filter !== "starred" && (page + 1) * PAGE_SIZE < (count ?? 0);
+  const total = items.length;
+  // 取到满页说明可能还有更多，取不满则已到底
+  const hasMore = filter !== "starred" && posts.length === PAGE_SIZE;
 
   return NextResponse.json({ items, total, hasMore });
 }
